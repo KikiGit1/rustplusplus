@@ -1,39 +1,22 @@
-// 1. Keep-alive server for Render
 const http = require('http');
 const port = process.env.PORT || 10000; 
 
 http.createServer((req, res) => {
   res.write("Bot is alive!");
   res.end();
-}).listen(port, () => {
-  console.log(`Keep-alive server listening on port ${port}`);
-});
+}).listen(port);
 
-// 2. Load Environment Variables manually
 require('dotenv').config();
 
-/*
-    Copyright (C) 2022 Alexander Emanuelsson (alexemanuelol)
-    ... (rest of the license comment)
-*/
 const Discord = require('discord.js');
 
-// Add these "shimming" lines to fix old code
-Discord.ButtonStyle = Discord.ButtonStyle || {
-    Primary: 1, Success: 3, Danger: 4, Link: 5, Secondary: 2
-};
-Discord.ComponentType = Discord.ComponentType || {
-    ActionRow: 1, Button: 2, StringSelect: 3, TextInput: 4, UserSelect: 5, RoleSelect: 6, MentionableSelect: 7, ChannelSelect: 8
-};
+// Shims for version compatibility
+Discord.ButtonStyle = { Primary: 1, Success: 3, Danger: 4, Link: 5, Secondary: 2 };
+Discord.ComponentType = { ActionRow: 1, Button: 2, StringSelect: 3 };
 
-const Discord = require('discord.js');
 const Fs = require('fs');
 const Path = require('path');
-
 const DiscordBot = require('./src/structures/DiscordBot');
-
-// LOG THE TOKEN (FOR DEBUGGING ONLY - Remove this after it works!)
-console.log("DEBUG: Token loaded length:", process.env.RPP_DISCORD_TOKEN ? process.env.RPP_DISCORD_TOKEN.length : "0 (NOT FOUND)");
 
 createMissingDirectories();
 // ... rest of your code
