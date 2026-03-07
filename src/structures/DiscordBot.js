@@ -2,7 +2,7 @@ const { Client, Collection } = require('discord.js');
 const Fs = require('fs');
 const Path = require('path');
 
-// Safe import for Intl (handles case-sensitivity on Render/Linux)
+// Safe Intl Import
 let IntlModule;
 try {
     IntlModule = require('./intl').Intl || require('./intl');
@@ -34,13 +34,13 @@ class DiscordBot extends Client {
         this.loadDiscordEvents();
         
         if (!this.config.token) {
-            console.error("CRITICAL: RPP_DISCORD_TOKEN is not set in Render Environment!");
+            console.error("CRITICAL: Token missing in Render Environment!");
             return;
         }
 
         try {
             await this.login(this.config.token);
-            console.log("SUCCESS: Bot is logging in...");
+            console.log("SUCCESS: Bot logged into Discord.");
         } catch (err) {
             console.error("LOGIN FAILED:", err.message);
         }
@@ -49,25 +49,13 @@ class DiscordBot extends Client {
     loadCommands() {
         const path = Path.join(__dirname, '../commands');
         if (!Fs.existsSync(path)) return;
-        
-        Fs.readdirSync(path)
-            .filter(f => f.endsWith('.js') || f.endsWith('.ts'))
-            .forEach(file => {
-                try {
-                    const cmd = require(`../commands/${file}`);
-                    // This version checks BOTH the new style (data.name) and old style (name)
-                    const commandName = cmd.data?.name || cmd.name;
-
-                    if (commandName) {
-                        this.commands.set(commandName, cmd);
-                        console.log(`Loaded command: ${commandName}`);
-                    } else {
-                        console.log(`Warning: Could not find name in ${file}.`);
-                    }
-                } catch (err) {
-                    console.error(`Error loading command ${file}:`, err.message);
-                }
-            });
+        Fs.readdirSync(path).filter(f => f.endsWith('.js') || f.endsWith('.ts')).forEach(file => {
+            try {
+                const cmd = require(`../commands/${file}`);
+                const commandName = cmd.data?.name || cmd.name;
+                if (commandName) this.commands.set(commandName, cmd);
+            } catch (e) { console.error(`Failed to load ${file}`); }
+        });
     }
 
     loadEvents() {
@@ -81,17 +69,21 @@ class DiscordBot extends Client {
     }
 
     loadDiscordEvents() {
-        // Fix for the "this.rest.on is not a function" error
         if (this.rest && typeof this.rest.on === 'function') {
             const path = Path.join(__dirname, '../discordEvents');
-            if (!Fs.existsSync(path)) return;
-            Fs.readdirSync(path).filter(f => f.endsWith('.js') || f.endsWith('.ts')).forEach(file => {
-                const ev = require(`../discordEvents/${file}`);
-                this.rest.on(ev.name, (...args) => ev.execute(this, ...args));
-            });
-        } else {
-            console.log("v14 detected: Skipping legacy REST event listeners.");
+            if (Fs.existsSync(path)) {
+                Fs.readdirSync(path).forEach(file => {
+                    const ev = require(`../discordEvents/${file}`);
+                    this.rest.on(ev.name, (...args) => ev.execute(this, ...args));
+                });
+            }
         }
+    }
+
+    // THE FIX: Adding the missing function the commands are calling
+    logInteraction(commandName, message) {
+        const user = message.author ? message.author.tag : 'Unknown User';
+        console.log(`[USE] ${user} used !${commandName}`);
     }
 
     getInstance(guildId) { return this.instances.get(guildId); }
