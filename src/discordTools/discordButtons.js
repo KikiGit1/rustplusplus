@@ -23,11 +23,11 @@ const Discord = require('discord.js');
 const Constants = require('../util/constants.js');
 const Client = require('../../index.ts');
 
-const SUCCESS = Discord.ButtonStyle.Success;
-const DANGER = Discord.ButtonStyle.Danger;
-const PRIMARY = Discord.ButtonStyle.Primary;
-const SECONDARY = Discord.ButtonStyle.Secondary;
-const LINK = Discord.ButtonStyle.Link;
+const SUCCESS = 3;
+const DANGER = 4;
+const PRIMARY = 1;
+const SECONDARY = 2;
+const LINK = 5;
 
 module.exports = {
     getButton: function (options = {}) {
