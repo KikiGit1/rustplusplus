@@ -49,10 +49,22 @@ class DiscordBot extends Client {
     loadCommands() {
         const path = Path.join(__dirname, '../commands');
         if (!Fs.existsSync(path)) return;
-        Fs.readdirSync(path).filter(f => f.endsWith('.js') || f.endsWith('.ts')).forEach(file => {
-            const cmd = require(`../commands/${file}`);
-            this.commands.set(cmd.data.name, cmd);
-        });
+        
+        Fs.readdirSync(path)
+            .filter(f => f.endsWith('.js') || f.endsWith('.ts'))
+            .forEach(file => {
+                try {
+                    const cmd = require(`../commands/${file}`);
+                    // Safety check: ensure the command and data.name exist
+                    if (cmd && cmd.data && cmd.data.name) {
+                        this.commands.set(cmd.data.name, cmd);
+                    } else {
+                        console.log(`Warning: Command in ${file} is missing 'data.name'. Skipping.`);
+                    }
+                } catch (err) {
+                    console.error(`Error loading command ${file}:`, err.message);
+                }
+            });
     }
 
     loadEvents() {
@@ -72,7 +84,7 @@ class DiscordBot extends Client {
             if (!Fs.existsSync(path)) return;
             Fs.readdirSync(path).filter(f => f.endsWith('.js') || f.endsWith('.ts')).forEach(file => {
                 const ev = require(`../discordEvents/${file}`);
-                this.rest.on(event.name, (...args) => ev.execute(this, ...args));
+                this.rest.on(ev.name, (...args) => ev.execute(this, ...args));
             });
         } else {
             console.log("v14 detected: Skipping legacy REST event listeners.");
