@@ -16,6 +16,15 @@ require('dotenv').config();
     Copyright (C) 2022 Alexander Emanuelsson (alexemanuelol)
     ... (rest of the license comment)
 */
+const Discord = require('discord.js');
+
+// Add these "shimming" lines to fix old code
+Discord.ButtonStyle = Discord.ButtonStyle || {
+    Primary: 1, Success: 3, Danger: 4, Link: 5, Secondary: 2
+};
+Discord.ComponentType = Discord.ComponentType || {
+    ActionRow: 1, Button: 2, StringSelect: 3, TextInput: 4, UserSelect: 5, RoleSelect: 6, MentionableSelect: 7, ChannelSelect: 8
+};
 
 const Discord = require('discord.js');
 const Fs = require('fs');
