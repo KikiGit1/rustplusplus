@@ -55,11 +55,14 @@ class DiscordBot extends Client {
             .forEach(file => {
                 try {
                     const cmd = require(`../commands/${file}`);
-                    // Safety check: ensure the command and data.name exist
-                    if (cmd && cmd.data && cmd.data.name) {
-                        this.commands.set(cmd.data.name, cmd);
+                    // This version checks BOTH the new style (data.name) and old style (name)
+                    const commandName = cmd.data?.name || cmd.name;
+
+                    if (commandName) {
+                        this.commands.set(commandName, cmd);
+                        console.log(`Loaded command: ${commandName}`);
                     } else {
-                        console.log(`Warning: Command in ${file} is missing 'data.name'. Skipping.`);
+                        console.log(`Warning: Could not find name in ${file}.`);
                     }
                 } catch (err) {
                     console.error(`Error loading command ${file}:`, err.message);
