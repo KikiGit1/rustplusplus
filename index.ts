@@ -1,3 +1,10 @@
+import * as http from 'http';
+
+http.createServer((req: any, res: any) => {
+  res.write("Bot is running!");
+  res.end();
+}).listen(8080);
+
 /*
     Copyright (C) 2022 Alexander Emanuelsson (alexemanuelol)
 
