@@ -1,9 +1,13 @@
 import * as http from 'http';
 
+const port = process.env.PORT || 8080; // Render will tell us which port to use
+
 http.createServer((req: any, res: any) => {
-  res.write("Bot is running!");
+  res.write("Bot is alive!");
   res.end();
-}).listen(8080);
+}).listen(port, () => {
+  console.log(`Keep-alive server listening on port ${port}`);
+});
 
 /*
     Copyright (C) 2022 Alexander Emanuelsson (alexemanuelol)
