@@ -1,30 +1,28 @@
-const { Client, Collection } = require('discord.js');
+const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const Fs = require('fs');
 const Path = require('path');
 
-// Safe Intl Import
-let IntlModule;
+// Case-sensitive fix for Render/Linux
+let Intl;
 try {
-    IntlModule = require('./intl').Intl || require('./intl');
+    Intl = require('./intl').Intl;
 } catch (e) {
-    try {
-        IntlModule = require('./Intl').Intl || require('./Intl');
-    } catch (e2) {
-        IntlModule = class { get() { return "Translation Missing"; } };
-    }
+    Intl = require('./Intl').Intl;
 }
 
 class DiscordBot extends Client {
     constructor(options) {
         super(options);
+
         this.commands = new Collection();
         this.events = new Collection();
         this.instances = new Collection();
         this.activeRustplusInstances = {};
-        this.intl = new IntlModule();
+        this.intl = new Intl();
         this.config = {
             token: process.env.RPP_DISCORD_TOKEN,
-            clientId: process.env.RPP_DISCORD_CLIENT_ID
+            clientId: process.env.RPP_DISCORD_CLIENT_ID,
+            prefix: process.env.RPP_PREFIX || '!'
         };
     }
 
@@ -33,62 +31,62 @@ class DiscordBot extends Client {
         this.loadEvents();
         this.loadDiscordEvents();
         
-        if (!this.config.token) {
-            console.error("CRITICAL: Token missing in Render Environment!");
-            return;
-        }
-
-        try {
-            await this.login(this.config.token);
-            console.log("SUCCESS: Bot logged into Discord.");
-        } catch (err) {
-            console.error("LOGIN FAILED:", err.message);
-        }
+        await this.login(this.config.token);
     }
 
     loadCommands() {
         const path = Path.join(__dirname, '../commands');
-        if (!Fs.existsSync(path)) return;
-        Fs.readdirSync(path).filter(f => f.endsWith('.js') || f.endsWith('.ts')).forEach(file => {
-            try {
-                const cmd = require(`../commands/${file}`);
-                const commandName = cmd.data?.name || cmd.name;
-                if (commandName) this.commands.set(commandName, cmd);
-            } catch (e) { console.error(`Failed to load ${file}`); }
-        });
+        const commandFiles = Fs.readdirSync(path).filter(file => file.endsWith('.js') || file.endsWith('.ts'));
+        for (const file of commandFiles) {
+            const command = require(`../commands/${file}`);
+            // Original repo uses command.data.name
+            this.commands.set(command.data.name, command);
+        }
     }
 
     loadEvents() {
         const path = Path.join(__dirname, '../events');
-        if (!Fs.existsSync(path)) return;
-        Fs.readdirSync(path).filter(f => f.endsWith('.js') || f.endsWith('.ts')).forEach(file => {
-            const ev = require(`../events/${file}`);
-            if (ev.once) this.once(ev.name, (...args) => ev.execute(this, ...args));
-            else this.on(ev.name, (...args) => ev.execute(this, ...args));
-        });
-    }
-
-    loadDiscordEvents() {
-        if (this.rest && typeof this.rest.on === 'function') {
-            const path = Path.join(__dirname, '../discordEvents');
-            if (Fs.existsSync(path)) {
-                Fs.readdirSync(path).forEach(file => {
-                    const ev = require(`../discordEvents/${file}`);
-                    this.rest.on(ev.name, (...args) => ev.execute(this, ...args));
-                });
+        const eventFiles = Fs.readdirSync(path).filter(file => file.endsWith('.js') || file.endsWith('.ts'));
+        for (const file of eventFiles) {
+            const event = require(`../events/${file}`);
+            if (event.once) {
+                this.once(event.name, (...args) => event.execute(this, ...args));
+            } else {
+                this.on(event.name, (...args) => event.execute(this, ...args));
             }
         }
     }
 
-    // THE FIX: Adding the missing function the commands are calling
-    logInteraction(commandName, context) {
-        const user = context.author ? context.author.tag : (context.user ? context.user.tag : 'Unknown');
-        console.log(`[COMMAND] ${user} used ${commandName}`);
+    loadDiscordEvents() {
+        // Fix for v14 rest.on crash
+        if (this.rest && typeof this.rest.on === 'function') {
+            const path = Path.join(__dirname, '../discordEvents');
+            if (Fs.existsSync(path)) {
+                const eventFiles = Fs.readdirSync(path).filter(file => file.endsWith('.js') || file.endsWith('.ts'));
+                for (const file of eventFiles) {
+                    const event = require(`../discordEvents/${file}`);
+                    this.rest.on(event.name, (...args) => event.execute(this, ...args));
+                }
+            }
+        }
     }
 
-    getInstance(guildId) { return this.instances.get(guildId); }
-    intlGet(guildId, key, vars) { return this.intl.get(guildId, key, vars); }
-    log(t, m, type = 'info') { console.log(`[${type.toUpperCase()}] ${t}: ${m}`); }
+    // Original Repo Helper Functions
+    logInteraction(commandName, interaction) {
+        this.log('Interaction', `${interaction.user.tag} used ${commandName}`);
+    }
+
+    getInstance(guildId) {
+        return this.instances.get(guildId);
+    }
+
+    intlGet(guildId, key, variables) {
+        return this.intl.get(guildId, key, variables);
+    }
+
+    log(title, message, type = 'info') {
+        console.log(`[${type.toUpperCase()}] ${title}: ${message}`);
+    }
 }
 
 module.exports = DiscordBot;
