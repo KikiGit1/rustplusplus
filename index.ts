@@ -1,70 +1,68 @@
 const http = require('http');
 const port = process.env.PORT || 10000; 
 
-// 1. Keep-alive for Render
 http.createServer((req, res) => {
-  res.write("Bot is fully operational!");
+  res.write("Bot is running Slash Commands!");
   res.end();
-}).listen(port, () => {
-  console.log(`Keep-alive server listening on port ${port}`);
-});
+}).listen(port, () => console.log(`Live on port ${port}`));
 
 require('dotenv').config();
 const Discord = require('discord.js');
 
-// 2. Compatibility Shims (The "Glue" between v13 and v14)
-Discord.ButtonStyle = { Primary: 1, Secondary: 2, Success: 3, Danger: 4, Link: 5 };
-Discord.ComponentType = { ActionRow: 1, Button: 2, StringSelect: 3 };
-Discord.GatewayIntentBits = { Guilds: 1, GuildMessages: 32768, MessageContent: 512, GuildMembers: 2, GuildVoiceStates: 128, DirectMessages: 4096 };
-
-// Fix for Embeds (This stops the "MessageEmbed is not a constructor" error)
+// v14 Shims
 Discord.MessageEmbed = Discord.EmbedBuilder || Discord.MessageEmbed;
 Discord.ActionRowBuilder = Discord.ActionRowBuilder || Discord.MessageActionRow;
 Discord.ButtonBuilder = Discord.ButtonBuilder || Discord.MessageButton;
 
-const Fs = require('fs');
-const Path = require('path');
 const DiscordBot = require('./src/structures/DiscordBot');
 
-// 3. Create Folders
-['logs', 'instances', 'credentials', 'maps'].forEach(dir => {
-    const fullPath = Path.join(__dirname, dir);
-    if (!Fs.existsSync(fullPath)) Fs.mkdirSync(fullPath);
-});
-
-// 4. Initialize Client
 const client = new DiscordBot({
-    intents: [1, 32768, 512, 2, 128, 4096],
-    retryLimit: 2,
-    restRequestTimeout: 60000
+    intents: [1, 32768, 512, 2, 128, 4096] 
 });
 
-// 5. Direct Message/Command Listener
-client.on('messageCreate', async (message) => {
-    if (message.author.bot) return;
+// --- THE SLASH COMMAND HANDLER ---
+client.on('interactionCreate', async (interaction) => {
+    // 1. Handle Slash Commands ( /command )
+    if (interaction.isChatInputCommand()) {
+        const command = client.commands.get(interaction.commandName);
+        if (!command) return;
 
-    const prefix = process.env.RPP_PREFIX || '!';
-    if (!message.content.startsWith(prefix)) return;
-
-    const args = message.content.slice(prefix.length).trim().split(/ +/g);
-    const commandName = args.shift().toLowerCase();
-    const command = client.commands.get(commandName);
-
-    if (command) {
         try {
-            // Log interaction before executing
-            client.logInteraction(commandName, message);
-            await command.execute(client, message, args);
+            console.log(`[SLASH] Executing /${interaction.commandName}`);
+            // Most Rust++ bots expect (client, interaction) for slash commands
+            await command.execute(client, interaction);
         } catch (error) {
-            console.error(`[ERROR] Command ${commandName} failed:`, error);
-            message.reply("There was an error executing that command. Check Render logs.");
+            console.error(`[ERROR] Slash Command ${interaction.commandName} failed:`, error);
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: 'Error executing command!', ephemeral: true });
+            } else {
+                await interaction.reply({ content: 'Error executing command!', ephemeral: true });
+            }
+        }
+    }
+
+    // 2. Handle Buttons and Select Menus (Settings)
+    if (interaction.isButton() || interaction.isStringSelectMenu()) {
+        console.log(`[INTERACTION] Triggered: ${interaction.customId}`);
+        const event = client.events.get('interactionCreate');
+        if (event) {
+            event.execute(client, interaction);
         }
     }
 });
 
-// 6. Build the Bot
-console.log("Starting DiscordBot build process...");
-client.build();
+// Keep the old prefix listener just as a backup
+client.on('messageCreate', async (message) => {
+    if (message.author.bot || !message.content.startsWith('!')) return;
+    const args = message.content.slice(1).trim().split(/ +/g);
+    const commandName = args.shift().toLowerCase();
+    const command = client.commands.get(commandName);
+    if (command) {
+        try {
+            client.logInteraction(commandName, message);
+            await command.execute(client, message, args);
+        } catch (e) { console.log("Prefix command failed, likely a Slash-only command."); }
+    }
+});
 
-process.on('unhandledRejection', error => console.error('CRITICAL:', error));
-exports.client = client;
+client.build();

@@ -81,9 +81,9 @@ class DiscordBot extends Client {
     }
 
     // THE FIX: Adding the missing function the commands are calling
-    logInteraction(commandName, message) {
-        const user = message.author ? message.author.tag : 'Unknown User';
-        console.log(`[USE] ${user} used !${commandName}`);
+    logInteraction(commandName, context) {
+        const user = context.author ? context.author.tag : (context.user ? context.user.tag : 'Unknown');
+        console.log(`[COMMAND] ${user} used ${commandName}`);
     }
 
     getInstance(guildId) { return this.instances.get(guildId); }
